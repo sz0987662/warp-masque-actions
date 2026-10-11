@@ -7,6 +7,7 @@
 //      过期了才重新注册。凭据有效期 4 小时（opera-proxy 的 -refresh 默认值）
 //   2. WARP 注册信息存 KV 复用，不每次重注册（设备是有限资源）
 //   3. 首次访问引导设密码，之后订阅路径、改密码都在界面里做
+import { load, dump } from "js-yaml";
 import { registerWarp } from "./warp.js";
 import { fetchOpera } from "./opera.js";
 import { buildConfig } from "./config.js";
@@ -18,6 +19,7 @@ import {
   readCookie, rateLimit, clearRateLimit, normalizePath,
 } from "./auth.js";
 
+const jsyaml = { load, dump };
 const K_WARP = "warp:device";     // WARP 注册信息，长期复用
 const K_CFG = "config:yaml";      // 聚合配置（套娃线路 + WARP 直连）
 const K_STATE = "state:meta";     // 状态元数据，给 UI 用
@@ -216,12 +218,34 @@ export default {
     // ---- 订阅。客户端带不了 cookie，用 ?token= ----
     if (path === subPath) {
       const t = url.searchParams.get("token") || "";
+      const content = url.searchParams.get("content") || "all";
+      const dialerProxy = url.searchParams.get("dialerProxy") || "";
       if (!(await verifyToken(cred, t)) && !authed) return notFound();
 
       const yaml = await ensureConfig(env);
       if (!yaml) {
         return new Response("配置生成失败，稍后重试或到管理页手动刷新",
           { status: 503, headers: { "content-type": "text/plain; charset=utf-8" } });
+      }
+      if(content === "proxies"){
+        const out = jsyaml.load(yaml);
+        let proxies = out.proxies || [];
+        proxies = proxies.filter(item => {
+          if(!item['dialer-proxy']) return true;
+          if(dialerProxy){
+            item['dialer-proxy'] = dialerProxy;
+            return true;
+          }
+          return false;
+        });
+        return new Response(jsyaml.dump({ proxies }), {
+          headers: {
+            "content-type": "text/yaml; charset=utf-8",
+            // "content-disposition": "attachment; filename=opera-masque-proxys.yaml",
+            "profile-update-interval": "4",
+            "cache-control": "no-store",
+          },
+        });
       }
       return new Response(yaml, {
         headers: {
