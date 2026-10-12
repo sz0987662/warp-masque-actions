@@ -42,6 +42,7 @@ jobs:
       - name: 注册设备并生成密钥
         run: |
           set -euo pipefail
+          mkdir -p dist
           ./usque register -a -n "${{ github.event.inputs.device_name || 'gh-actions' }}"
           test -s config.json
           # 只打印非敏感字段，密钥不进日志
