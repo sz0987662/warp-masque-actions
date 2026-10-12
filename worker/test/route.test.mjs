@@ -233,6 +233,32 @@ t("新密码能登上",
   t("能清除 Proton 凭据", !kv.get("proton:cred"));
 }
 
+// ---- WARP 注册信息由流水线推送 ----
+{
+  reset();
+  await worker.fetch(post("/api/setup", { password: PW, confirm: PW }), env);
+  const c7 = (await worker.fetch(post("/login", { password: PW }), env))
+    .headers.get("set-cookie").split(";")[0];
+  const a7 = { cookie: c7 };
+  const tk = (await (await worker.fetch(post("/api/proton/token", {}, a7), env)).json()).token;
+  const raw = (p, body) => new Request(`https://x.dev${p}`, {
+    method: "POST", headers: { "cf-connecting-ip": "9.9.9.9" }, body });
+
+  const warp = JSON.stringify({
+    privateKey: "PRIVKEY",
+    peerPublicKey: "PEERPUB",
+    ipv4: "172.16.0.2",
+    ipv6: "fd00::2",
+    registeredAt: new Date().toISOString(),
+  });
+  const okwarp = await worker.fetch(raw(`/push/${tk}/warp`, warp), env);
+  t("WARP 注册信息推送被接受", okwarp.status === 200);
+  t("WARP 注册信息已落 KV", JSON.parse(kv.get("warp:device")).privateKey === "PRIVKEY");
+
+  t("错误令牌推 WARP 注册信息 404",
+    (await worker.fetch(raw(`/push/wrong/warp`, warp), env)).status === 404);
+}
+
 // ---- Windscribe ----
 {
   reset();

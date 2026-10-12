@@ -298,6 +298,28 @@ export default {
         }
       }
 
+      if (kind === "warp") {
+        let payload;
+        try {
+          payload = JSON.parse(body);
+        } catch {
+          return json({ ok: false, error: "不是合法的 JSON" }, 400);
+        }
+        if (!payload || !payload.privateKey || !payload.peerPublicKey || !payload.ipv4 || !payload.ipv6) {
+          return json({ ok: false, error: "缺 privateKey / peerPublicKey / ipv4 / ipv6" }, 400);
+        }
+        await env.KV.put(K_WARP, JSON.stringify({
+          ...payload,
+          registeredAt: payload.registeredAt || new Date().toISOString(),
+        }));
+        try {
+          const st = await rebuild(env);
+          return json({ ok: true, msg: `已同步 WARP 注册信息，${st.stats.combos} 个组合` });
+        } catch (e) {
+          return json({ ok: true, msg: "WARP 注册信息已写入，但重建配置失败：" + e.message });
+        }
+      }
+
       let parsed;
       try {
         parsed = parseBlob(body);

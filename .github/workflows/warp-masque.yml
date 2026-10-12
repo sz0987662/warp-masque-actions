@@ -11,6 +11,11 @@ on:
         description: artifact 保留天数
         required: false
         default: '7'
+      sync_worker:
+        description: WARP 注册信息是否同步到 Worker，一般是在works中注册WARP失败时使用（需配置 WORKER_PUSH_URL secret）
+        required: false
+        default: 'false'
+        
 
 permissions:
   contents: read
@@ -42,10 +47,21 @@ jobs:
           # 只打印非敏感字段，密钥不进日志
           python3 - <<'PY'
           import json
+          from datetime import datetime, timezone
           c = json.load(open("config.json"))
+          out = {
+            "privateKey": c["private_key"],
+            "peerPublicKey": c["endpoint_pub_key"],
+            "ipv4": c["ipv4"],
+            "ipv6": c["ipv6"],
+            "registeredAt": datetime.now(timezone.utc).isoformat(),
+          }
+          with open("dist/warp-registration.json", "w") as f:
+            json.dump(out, f)
           print("endpoint_v4 =", c["endpoint_v4"])
           print("endpoint_v6 =", c["endpoint_v6"])
           print("内网地址 =", c["ipv4"], "/", c["ipv6"])
+          print("已生成 WARP 注册信息 JSON")
           PY
 
       - name: 生成 mihomo 配置
@@ -64,6 +80,23 @@ jobs:
           # -t 只做配置解析校验，不起服务
           ./mihomo -t -d check
           echo "配置校验通过"
+
+      - name: 推送到 Worker
+        if: ${{ github.event.inputs.sync_worker == 'true' }}
+        env:
+          URL: ${{ secrets.WORKER_PUSH_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${URL:-}" ]; then
+            echo "没配 WORKER_PUSH_URL，跳过推送。WARP 注册信息在 artifact 里，可手动粘贴。"
+            exit 0
+          fi
+          test -s dist/warp-registration.json
+          CODE=$(curl -s -o /tmp/resp.json -w '%{http_code}' -X POST "${URL%/}/warp" \
+            --data-binary @dist/warp-registration.json)
+          echo "HTTP $CODE"
+          cat /tmp/resp.json; echo
+          [ "$CODE" = "200" ] || { echo "推送失败"; exit 1; }
 
       - name: 打包凭据与配置
         run: |
