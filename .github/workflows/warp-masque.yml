@@ -50,9 +50,13 @@ jobs:
           import json
           from datetime import datetime, timezone
           c = json.load(open("config.json"))
+          pub = c["endpoint_pub_key"].replace("-----BEGIN PUBLIC KEY-----", "")
+          pub = pub.replace("-----END PUBLIC KEY-----", "")
+          pub = "".join(pub.split())
           out = {
+            "deviceId": c["id"],
             "privateKey": c["private_key"],
-            "peerPublicKey": c["endpoint_pub_key"],
+            "peerPublicKey": pub,
             "ipv4": c["ipv4"],
             "ipv6": c["ipv6"],
             "registeredAt": datetime.now(timezone.utc).isoformat(),

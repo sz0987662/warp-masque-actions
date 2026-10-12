@@ -245,6 +245,7 @@ t("新密码能登上",
     method: "POST", headers: { "cf-connecting-ip": "9.9.9.9" }, body });
 
   const warp = JSON.stringify({
+    deviceId: "dev-123",
     privateKey: "PRIVKEY",
     peerPublicKey: "PEERPUB",
     ipv4: "172.16.0.2",

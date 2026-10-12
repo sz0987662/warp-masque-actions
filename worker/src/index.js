@@ -305,13 +305,15 @@ export default {
         } catch {
           return json({ ok: false, error: "不是合法的 JSON" }, 400);
         }
-        if (!payload || !payload.privateKey || !payload.peerPublicKey || !payload.ipv4 || !payload.ipv6) {
-          return json({ ok: false, error: "缺 privateKey / peerPublicKey / ipv4 / ipv6" }, 400);
+        if (!payload || !payload.deviceId || !payload.privateKey || !payload.peerPublicKey || !payload.ipv4 || !payload.ipv6) {
+          return json({ ok: false, error: "缺 deviceId / privateKey / peerPublicKey / ipv4 / ipv6" }, 400);
         }
-        await env.KV.put(K_WARP, JSON.stringify({
+        const cleaned = {
           ...payload,
+          peerPublicKey: String(payload.peerPublicKey).replace(/-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\s+/g, ""),
           registeredAt: payload.registeredAt || new Date().toISOString(),
-        }));
+        };
+        await env.KV.put(K_WARP, JSON.stringify(cleaned));
         try {
           const st = await rebuild(env);
           return json({ ok: true, msg: `已同步 WARP 注册信息，${st.stats.combos} 个组合` });

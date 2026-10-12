@@ -4951,13 +4951,15 @@ var index_default = {
         } catch {
           return json({ ok: false, error: "\u4E0D\u662F\u5408\u6CD5\u7684 JSON" }, 400);
         }
-        if (!payload || !payload.privateKey || !payload.peerPublicKey || !payload.ipv4 || !payload.ipv6) {
-          return json({ ok: false, error: "\u7F3A privateKey / peerPublicKey / ipv4 / ipv6" }, 400);
+        if (!payload || !payload.deviceId || !payload.privateKey || !payload.peerPublicKey || !payload.ipv4 || !payload.ipv6) {
+          return json({ ok: false, error: "\u7F3A deviceId / privateKey / peerPublicKey / ipv4 / ipv6" }, 400);
         }
-        await env.KV.put(K_WARP, JSON.stringify({
+        const cleaned = {
           ...payload,
+          peerPublicKey: String(payload.peerPublicKey).replace(/-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\s+/g, ""),
           registeredAt: payload.registeredAt || (/* @__PURE__ */ new Date()).toISOString()
-        }));
+        };
+        await env.KV.put(K_WARP, JSON.stringify(cleaned));
         try {
           const st = await rebuild(env);
           return json({ ok: true, msg: `\u5DF2\u540C\u6B65 WARP \u6CE8\u518C\u4FE1\u606F\uFF0C${st.stats.combos} \u4E2A\u7EC4\u5408` });
